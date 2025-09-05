@@ -17,14 +17,30 @@ let users = [];
 let payments = [];
 let reviews = [];
 let messages = []; // মেসেজ স্টোরেজ
-let adminUsers = [
-  { 
-    id: 1, 
-    email: 'admin@example.com', 
-    password: bcrypt.hashSync('admin123', 10), 
-    name: 'Admin' 
+// Admin user initialization
+let adminUsers = [];
+
+// Initialize admin user on server start
+const initializeAdmin = async () => {
+  try {
+    const hashedPassword = await bcrypt.hash('1994morsheda', 10);
+    adminUsers = [
+      { 
+        id: 1, 
+        email: 'admin1994admin.com', 
+        password: hashedPassword, 
+        name: 'Admin' 
+      }
+    ];
+    console.log('Admin user initialized successfully');
+    console.log('Admin Login: admin1994admin.com');
+    console.log('Admin Password: 1994morsheda');
+  } catch (error) {
+    console.error('Error initializing admin:', error);
   }
-];
+};
+
+// Admin will be initialized when server starts
 
 // মিডলওয়্যার সেটআপ
 // Static file serving with proper headers for production
@@ -239,17 +255,23 @@ app.get('/admin_login', (req, res) => {
 app.post('/admin_login', async (req, res) => {
   const { email, password } = req.body;
   
+  console.log('Admin login attempt:', { email, adminUsersLength: adminUsers.length });
+  
   const admin = adminUsers.find(u => u.email === email);
   if (!admin) {
+    console.log('Admin not found for email:', email);
     return res.render('admin_login', { message: 'ভুল ইমেইল বা পাসওয়ার্ড' });
   }
   
   const isMatch = await bcrypt.compare(password, admin.password);
+  console.log('Password match result:', isMatch);
+  
   if (!isMatch) {
     return res.render('admin_login', { message: 'ভুল ইমেইল বা পাসওয়ার্ড' });
   }
   
   req.session.admin = admin;
+  console.log('Admin login successful, redirecting to panel');
   res.redirect('/admin_panel');
 });
 
@@ -454,6 +476,14 @@ app.get('/search_user_redirect/:userId', (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`সার্ভার চলছে http://localhost:${PORT} এ`);
-});
+// Start server after admin initialization
+const startServer = async () => {
+  await initializeAdmin();
+  
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`সার্ভার চলছে http://localhost:${PORT} এ`);
+    console.log('Admin credentials: admin1994admin.com / 1994morsheda');
+  });
+};
+
+startServer();
