@@ -27,13 +27,13 @@ const initializeAdmin = async () => {
     adminUsers = [
       { 
         id: 1, 
-        email: 'admin1994admin.com', 
+        email: 'admin1994@admin.com', 
         password: hashedPassword, 
         name: 'Admin' 
       }
     ];
     console.log('Admin user initialized successfully');
-    console.log('Admin Login: admin1994admin.com');
+    console.log('Admin Login: admin1994@admin.com');
     console.log('Admin Password: 1994morsheda');
   } catch (error) {
     console.error('Error initializing admin:', error);
