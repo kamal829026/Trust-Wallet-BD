@@ -20,21 +20,40 @@ let messages = []; // মেসেজ স্টোরেজ
 // Admin user initialization
 let adminUsers = [];
 
-// Initialize admin user on server start
+// Initialize admin user and test user on server start
 const initializeAdmin = async () => {
   try {
-    const hashedPassword = await bcrypt.hash('1994morsheda', 10);
+    const adminHashedPassword = await bcrypt.hash('1994morsheda', 10);
+    const testUserHashedPassword = await bcrypt.hash('123456', 10);
+    
     adminUsers = [
       { 
         id: 1, 
-        email: 'admin1994@admin.com', 
-        password: hashedPassword, 
+        email: 'admin1994admin.com', 
+        password: adminHashedPassword, 
         name: 'Admin' 
       }
     ];
+    
+    // Create a test user for easier testing
+    users.push({
+      id: 1,
+      userId: 'U000001',
+      name: 'Test User',
+      phone: '01712345678',
+      email: 'test@test.com',
+      password: testUserHashedPassword,
+      originalPassword: '123456',
+      balance: 0,
+      joinedAt: new Date()
+    });
+    
     console.log('Admin user initialized successfully');
-    console.log('Admin Login: admin1994@admin.com');
+    console.log('Admin Login: admin1994admin.com');
     console.log('Admin Password: 1994morsheda');
+    console.log('Test User Login: test@test.com');
+    console.log('Test User Password: 123456');
+    console.log('Environment:', process.env.NODE_ENV || 'development');
   } catch (error) {
     console.error('Error initializing admin:', error);
   }
@@ -55,15 +74,21 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+// Trust proxy for production (Render uses proxy)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_session_secret_key_2024',
-  resave: true, // সেশন সেভ করার জন্য
-  saveUninitialized: true, // নতুন সেশন সেভ করার জন্য
+  resave: false, // Don't save session if unmodified
+  saveUninitialized: false, // Don't create session until something stored
   rolling: true, // প্রতি রিকুয়েস্টে সেশন এক্সটেন্ড করার জন্য
   cookie: { 
-    maxAge: 30 * 24 * 60 * 60 * 1000, // ৩০ দিন (মিলিসেকেন্ডে)
-    secure: process.env.NODE_ENV === 'production', // Production এ HTTPS এর জন্য true
+    maxAge: 24 * 60 * 60 * 1000, // ২৪ ঘন্টা (মিলিসেকেন্ডে)
+    secure: process.env.NODE_ENV === 'production', // Production এ HTTPS এর জন্য
     httpOnly: true, // নিরাপত্তার জন্য
+    sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'lax' // CSRF protection
   },
   name: 'sessionId' // কাস্টম সেশন নাম
 }));
@@ -167,15 +192,46 @@ app.post('/register', async (req, res) => {
   res.redirect('/login');
 });
 
-app.post('/login', passport.authenticate('local', {
-  successRedirect: '/dashboard',
-  failureRedirect: '/login'
-}));
+app.post('/login', (req, res, next) => {
+  console.log('Login attempt:', req.body.email);
+  console.log('Session ID:', req.sessionID);
+  
+  passport.authenticate('local', (err, user, info) => {
+    if (err) {
+      console.error('Login error:', err);
+      return next(err);
+    }
+    
+    if (!user) {
+      console.log('Login failed:', info);
+      return res.render('login', { message: info.message || 'লগইন ব্যর্থ' });
+    }
+    
+    req.logIn(user, (err) => {
+      if (err) {
+        console.error('Session login error:', err);
+        return next(err);
+      }
+      
+      console.log('Login successful for user:', user.email);
+      console.log('Session after login:', req.session);
+      return res.redirect('/dashboard');
+    });
+  })(req, res, next);
+});
 
 app.get('/dashboard', (req, res) => {
+  console.log('Dashboard access attempt');
+  console.log('User authenticated:', !!req.user);
+  console.log('Session:', req.session);
+  console.log('Session ID:', req.sessionID);
+  
   if (!req.user) {
+    console.log('User not authenticated, redirecting to login');
     return res.redirect('/login');
   }
+  
+  console.log('User authenticated, rendering dashboard');
   res.render('dashboard', { user: req.user });
 });
 
@@ -276,10 +332,17 @@ app.post('/admin_login', async (req, res) => {
 });
 
 app.get('/admin_panel', (req, res) => {
+  console.log('Admin panel access attempt');
+  console.log('Admin session:', !!req.session.admin);
+  console.log('Session ID:', req.sessionID);
+  console.log('Full session:', req.session);
+  
   if (!req.session.admin) {
+    console.log('Admin not authenticated, redirecting to admin_login');
     return res.redirect('/admin_login');
   }
   
+  console.log('Admin authenticated, rendering admin panel');
   res.render('admin_panel', { 
     users, 
     payments, 
@@ -482,7 +545,11 @@ const startServer = async () => {
   
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`সার্ভার চলছে http://localhost:${PORT} এ`);
+    console.log('Environment:', process.env.NODE_ENV || 'development');
+    console.log('Trust proxy:', process.env.NODE_ENV === 'production' ? 'enabled' : 'disabled');
+    console.log('Cookie secure:', process.env.NODE_ENV === 'production' ? 'true' : 'false');
     console.log('Admin credentials: admin1994admin.com / 1994morsheda');
+    console.log('Test user credentials: test@test.com / 123456');
   });
 };
 
